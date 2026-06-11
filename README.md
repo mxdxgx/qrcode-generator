@@ -22,6 +22,7 @@ L'application est concue comme un outil simple, moderne et autonome: aucune API 
 - Mise en page responsive pour mobile, tablette et bureau.
 - Tests unitaires Angular/Karma couvrant les principaux comportements.
 - Workflow GitHub Actions pour verifier les pull requests vers `master`.
+- Workflow GitHub Actions de deploiement automatique apres merge sur `master`, avec declenchement manuel possible.
 
 ## Stack technique
 
@@ -125,7 +126,7 @@ CHROME_BIN=/chemin/vers/chrome npm test
 
 ## Integration continue
 
-Le workflow GitHub Actions se trouve dans:
+Le workflow de verification des pull requests se trouve dans:
 
 ```text
 .github/workflows/pr-checks.yml
@@ -141,10 +142,33 @@ Etapes executees:
 4. Execution des tests unitaires avec Chrome Headless.
 5. Build de production avec `npm run build`.
 
+## Deploiement
+
+Le workflow de deploiement se trouve dans:
+
+```text
+.github/workflows/deploy-pages.yml
+```
+
+Il publie l'application sur GitHub Pages, un hebergement gratuit adapte a cette application Angular statique. Le deploiement se declenche automatiquement apres un merge sur `master`, car GitHub emet alors un evenement `push` sur la branche `master`. Il peut aussi etre lance manuellement depuis l'onglet "Actions" de GitHub grace a `workflow_dispatch`.
+
+Etapes executees:
+
+1. Recuperation du depot.
+2. Installation de Node.js `24.15.0`.
+3. Installation reproductible avec `npm ci`.
+4. Build Angular avec un `base-href` adapte au nom du depot.
+5. Configuration de GitHub Pages.
+6. Upload de `dist/qrcodegenerator/browser` comme artefact Pages.
+7. Deploiement sur GitHub Pages.
+
+Lorsque le deploiement reussit, l'URL publique est affichee dans la page du workflow GitHub Actions, dans l'environnement `github-pages` et dans le resume du job de deploiement.
+
 ## Structure du projet
 
 ```text
 .
+├── .github/workflows/deploy-pages.yml
 ├── .github/workflows/pr-checks.yml
 ├── angular.json
 ├── package.json
@@ -267,4 +291,4 @@ Avant d'ouvrir une pull request vers `master`:
 3. Executer `npm run build`.
 4. Verifier manuellement le flux principal: URL, logo, style, langue, telechargement.
 
-Les pull requests vers `master` sont automatiquement verifiees par GitHub Actions.
+Les pull requests vers `master` sont automatiquement verifiees par GitHub Actions. Apres merge sur `master`, le workflow de deploiement publie automatiquement l'application sur GitHub Pages. Le meme deploiement peut aussi etre lance manuellement depuis GitHub Actions.
