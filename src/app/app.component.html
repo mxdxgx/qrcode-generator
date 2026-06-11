@@ -1,0 +1,98 @@
+<main class="shell">
+  <section class="workspace" aria-labelledby="page-title">
+    <div class="intro">
+      <div class="intro-bar">
+        <p class="eyebrow">{{ text.appName }}</p>
+        <div class="language-switcher" role="group" [attr.aria-label]="text.language">
+          <button type="button" [class.active]="locale === 'en'" (click)="setLocale('en')">EN</button>
+          <button type="button" [class.active]="locale === 'fr'" (click)="setLocale('fr')">FR</button>
+        </div>
+      </div>
+      <h1 id="page-title">{{ text.title }}</h1>
+      <p class="lede">{{ text.lede }}</p>
+      <div class="highlights" [attr.aria-label]="text.featuresLabel">
+        <span>{{ text.highCorrection }}</span>
+        <span>{{ text.logoSafe }}</span>
+        <span>{{ text.pngExport }}</span>
+      </div>
+    </div>
+
+    <form class="panel">
+      <label class="field">
+        <span>{{ text.destinationUrl }}</span>
+        <input
+          type="url"
+          name="url"
+          [(ngModel)]="url"
+          (ngModelChange)="updateQr()"
+          [placeholder]="text.urlPlaceholder"
+          aria-describedby="url-status"
+          required
+        >
+      </label>
+      <p id="url-status" class="status" [class.error]="!validUrl()">
+        {{ validUrl() ? text.ready : text.invalidUrl }}
+      </p>
+
+      <div class="field">
+        <span>{{ text.logoImage }}</span>
+        <div class="file-row">
+          <input #fileInput type="file" accept="image/*" [disabled]="isProcessingLogo()" (change)="onLogoSelected($event)">
+          @if (logoDataUrl || isProcessingLogo()) {
+            <button class="ghost" type="button" [disabled]="isProcessingLogo()" (click)="clearLogo(fileInput)">{{ text.remove }}</button>
+          }
+        </div>
+        @if (isProcessingLogo()) {
+          <p class="file-name">{{ text.processingLogo }}</p>
+        } @else if (logoName) {
+          <p class="file-name">{{ logoName }}</p>
+        }
+      </div>
+
+      <div class="field">
+        <span>{{ text.style }}</span>
+        <div class="theme-grid" role="group" [attr.aria-label]="text.styleLabel">
+          <button type="button" class="theme ink" [class.active]="theme === 'ink'" (click)="setTheme('ink')">{{ text.ink }}</button>
+          <button type="button" class="theme mint" [class.active]="theme === 'mint'" (click)="setTheme('mint')">{{ text.mint }}</button>
+          <button type="button" class="theme ember" [class.active]="theme === 'ember'" (click)="setTheme('ember')">{{ text.ember }}</button>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="primary" type="button" [disabled]="!validUrl() || isDownloading() || isProcessingLogo()" (click)="download()">{{ isDownloading() ? text.preparing : text.download }}</button>
+        <button class="secondary" type="button" (click)="reset()">{{ text.reset }}</button>
+      </div>
+    </form>
+  </section>
+
+  <aside class="preview" [attr.aria-label]="text.previewLabel">
+    <div class="preview-header">
+      <div>
+        <p class="eyebrow">{{ text.livePreview }}</p>
+        <h2>{{ text.scanReady }}</h2>
+      </div>
+      @if (logoDataUrl) {
+        <img class="logo-chip" [src]="logoDataUrl" [alt]="text.logoPreviewAlt">
+      }
+    </div>
+
+    <div class="qr-frame">
+      <div #qrCanvas class="qr-canvas" [attr.aria-label]="text.generatedQrLabel"></div>
+    </div>
+
+    <div class="metrics">
+      <div>
+        <span>{{ text.format }}</span>
+        <strong>PNG</strong>
+      </div>
+      <div>
+        <span>{{ text.size }}</span>
+        <strong>320px</strong>
+      </div>
+      <div>
+        <span>{{ text.mode }}</span>
+        <strong>URL</strong>
+      </div>
+    </div>
+  </aside>
+</main>
