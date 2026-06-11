@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 
+# Coverage reports 
+coverage/
 # Angular build output
 dist/
 .angular/
@@ -15,3 +17,6 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Test coverage
+coverage/
