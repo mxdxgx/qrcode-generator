@@ -85,10 +85,14 @@
             ],
             "browsers": "ChromeHeadless",
             "watch": false,
-            "codeCoverage": true
+            "codeCoverage": true,
+            "karmaConfig": "karma.conf.js"
           }
         }
       }
     }
+  },
+  "cli": {
+    "analytics": false
   }
 }

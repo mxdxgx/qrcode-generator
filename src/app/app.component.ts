@@ -124,9 +124,11 @@ export class AppComponent implements AfterViewInit {
       return;
     }
 
+    const qrCode = this.qrCode;
+
     this.pendingQrFrame = window.requestAnimationFrame(() => {
       this.pendingQrFrame = 0;
-      this.qrCode?.update(this.getQrOptions());
+      qrCode.update(this.getQrOptions());
     });
   }
 
@@ -253,12 +255,13 @@ export class AppComponent implements AfterViewInit {
 
   private getQrOptions(): Options {
     const palette = themes[this.theme];
+    const data = this.url.trim();
 
     return {
       width: 320,
       height: 320,
       type: 'canvas',
-      data: this.url.trim() || 'https://example.com',
+      data: data ? data : 'https://example.com',
       image: this.logoDataUrl || undefined,
       margin: 12,
       qrOptions: {
@@ -302,6 +305,6 @@ export class AppComponent implements AfterViewInit {
       return 'branded-qr-code';
     }
 
-    return new URL(this.url).hostname.replace(/^www\./, '').replaceAll('.', '-') || 'branded-qr-code';
+    return new URL(this.url).hostname.replace(/^www\./, '').replaceAll('.', '-');
   }
 }

@@ -187,4 +187,216 @@ describe('AppComponent', () => {
 
     expect(downloadSpy).not.toHaveBeenCalled();
   });
+
+  it('ne fait rien si aucun fichier logo n est selectionne', async () => {
+    const optimizerSpy = spyOn(
+      component as unknown as { createOptimizedLogo(file: File): Promise<string> },
+      'createOptimizedLogo'
+    ).and.returnValue(Promise.resolve('data:image/png;base64,unused'));
+
+    await component.onLogoSelected({ target: { files: [], value: '' } } as unknown as Event);
+
+    expect(optimizerSpy).not.toHaveBeenCalled();
+    expect(component.logoDataUrl).toBe('');
+    expect(component.logoName).toBe('');
+  });
+
+  it('nettoie le champ si l optimisation du logo echoue', async () => {
+    spyOn(console, 'error');
+    spyOn(
+      component as unknown as { createOptimizedLogo(file: File): Promise<string> },
+      'createOptimizedLogo'
+    ).and.returnValue(Promise.reject(new Error('boom')));
+    spyOn(window, 'requestAnimationFrame').and.callFake((callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    const input = { files: [new File(['bad'], 'bad.png', { type: 'image/png' })], value: 'C:\\fakepath\\bad.png' };
+
+    await component.onLogoSelected({ target: input } as unknown as Event);
+
+    expect(console.error).toHaveBeenCalled();
+    expect(input.value).toBe('');
+    expect(component.logoDataUrl).toBe('');
+    expect(component.logoName).toBe('');
+    expect(component.isProcessingLogo()).toBeFalse();
+  });
+
+  it('ne planifie pas de rafraichissement QR sans instance QR ou si une frame est deja en attente', () => {
+    const requestFrameSpy = spyOn(window, 'requestAnimationFrame').and.callThrough();
+    const internals = component as unknown as { qrCode?: QRCodeStyling; pendingQrFrame: number; updateQr(): void };
+
+    internals.qrCode = undefined;
+    component.updateQr();
+
+    internals.qrCode = new QRCodeStyling({ data: 'https://example.com' });
+    internals.pendingQrFrame = 123;
+    component.updateQr();
+
+    expect(requestFrameSpy).not.toHaveBeenCalled();
+  });
+
+  it('genere les options QR avec les fallbacks de donnees et de logo', () => {
+    const internals = component as unknown as { getQrOptions(): { data?: string; image?: string; dotsOptions?: { color?: string }; cornersSquareOptions?: { color?: string } } };
+
+    component.url = '   ';
+    component.logoDataUrl = '';
+    component.theme = 'ember';
+    let options = internals.getQrOptions();
+
+    expect(options.data).toBe('https://example.com');
+    expect(options.image).toBeUndefined();
+    expect(options.dotsOptions?.color).toBe('#3d1f12');
+    expect(options.cornersSquareOptions?.color).toBe('#f97316');
+
+    component.url = 'https://brand.example';
+    component.logoDataUrl = 'data:image/png;base64,logo';
+    options = internals.getQrOptions();
+
+    expect(options.data).toBe('https://brand.example');
+    expect(options.image).toBe('data:image/png;base64,logo');
+  });
+
+  it('remet l etat de telechargement a false si le telechargement echoue', async () => {
+    const qrCode = (component as unknown as { qrCode: QRCodeStyling }).qrCode;
+    spyOn(qrCode, 'download').and.returnValue(Promise.reject(new Error('download failed')));
+
+    await expectAsync(component.download()).toBeRejectedWithError('download failed');
+
+    expect(component.isDownloading()).toBeFalse();
+  });
+
+  it('ne telecharge pas si l instance QR est absente', async () => {
+    const internals = component as unknown as { qrCode?: QRCodeStyling };
+    internals.qrCode = undefined;
+
+    await component.download();
+
+    expect(component.isDownloading()).toBeFalse();
+  });
+
+  it('optimise reellement une image via canvas et libere l URL objet', async () => {
+    const originalImage = window.Image;
+    const createObjectUrlSpy = spyOn(URL, 'createObjectURL').and.returnValue('blob:logo');
+    const revokeObjectUrlSpy = spyOn(URL, 'revokeObjectURL');
+    const drawImageSpy = jasmine.createSpy('drawImage');
+    const toDataUrlSpy = jasmine.createSpy('toDataURL').and.returnValue('data:image/png;base64,resized');
+    const originalCreateElement = document.createElement.bind(document);
+
+    class FakeImage {
+      naturalWidth = 2048;
+      naturalHeight = 1024;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      set src(_value: string) {
+        this.onload?.();
+      }
+    }
+
+    spyOn(document, 'createElement').and.callFake((tagName: string): HTMLElement => {
+      if (tagName !== 'canvas') {
+        return originalCreateElement(tagName);
+      }
+
+      return {
+        width: 0,
+        height: 0,
+        getContext: () => ({
+          imageSmoothingEnabled: false,
+          imageSmoothingQuality: 'low',
+          drawImage: drawImageSpy
+        }),
+        toDataURL: toDataUrlSpy
+      } as unknown as HTMLElement;
+    });
+    (window as unknown as { Image: typeof Image }).Image = FakeImage as unknown as typeof Image;
+
+    try {
+      const result = await (component as unknown as { createOptimizedLogo(file: File): Promise<string> }).createOptimizedLogo(
+        new File(['logo'], 'logo.png', { type: 'image/png' })
+      );
+
+      expect(result).toBe('data:image/png;base64,resized');
+      expect(createObjectUrlSpy).toHaveBeenCalled();
+      expect(drawImageSpy).toHaveBeenCalledWith(jasmine.any(FakeImage), 0, 0, 512, 256);
+      expect(toDataUrlSpy).toHaveBeenCalledWith('image/png', 0.9);
+      expect(revokeObjectUrlSpy).toHaveBeenCalledOnceWith('blob:logo');
+    } finally {
+      (window as unknown as { Image: typeof Image }).Image = originalImage;
+    }
+  });
+
+  it('signale une erreur si le canvas 2D est indisponible pendant l optimisation', async () => {
+    const originalImage = window.Image;
+    spyOn(URL, 'createObjectURL').and.returnValue('blob:logo');
+    const revokeObjectUrlSpy = spyOn(URL, 'revokeObjectURL');
+    const originalCreateElement = document.createElement.bind(document);
+
+    class FakeImage {
+      naturalWidth = 100;
+      naturalHeight = 100;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      set src(_value: string) {
+        this.onload?.();
+      }
+    }
+
+    spyOn(document, 'createElement').and.callFake((tagName: string): HTMLElement => {
+      if (tagName !== 'canvas') {
+        return originalCreateElement(tagName);
+      }
+
+      return {
+        width: 0,
+        height: 0,
+        getContext: () => null
+      } as unknown as HTMLElement;
+    });
+    (window as unknown as { Image: typeof Image }).Image = FakeImage as unknown as typeof Image;
+
+    try {
+      await expectAsync(
+        (component as unknown as { createOptimizedLogo(file: File): Promise<string> }).createOptimizedLogo(
+          new File(['logo'], 'logo.png', { type: 'image/png' })
+        )
+      ).toBeRejectedWithError('Canvas rendering is unavailable.');
+      expect(revokeObjectUrlSpy).toHaveBeenCalledOnceWith('blob:logo');
+    } finally {
+      (window as unknown as { Image: typeof Image }).Image = originalImage;
+    }
+  });
+
+  it('rejette le chargement image lorsque le navigateur ne peut pas lire la source', async () => {
+    const originalImage = window.Image;
+
+    class FakeImage {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      set src(_value: string) {
+        this.onerror?.();
+      }
+    }
+
+    (window as unknown as { Image: typeof Image }).Image = FakeImage as unknown as typeof Image;
+
+    try {
+      await expectAsync(
+        (component as unknown as { loadImage(sourceUrl: string): Promise<HTMLImageElement> }).loadImage('blob:broken')
+      ).toBeRejectedWithError('The selected logo could not be loaded.');
+    } finally {
+      (window as unknown as { Image: typeof Image }).Image = originalImage;
+    }
+  });
+
+
+  it('utilise un nom generique pour un telechargement si l URL est invalide', () => {
+    component.url = 'not-a-url';
+
+    expect((component as unknown as { getDownloadName(): string }).getDownloadName()).toBe('branded-qr-code');
+  });
+
 });
