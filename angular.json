@@ -64,6 +64,29 @@
             }
           },
           "defaultConfiguration": "development"
+        },
+        "test": {
+          "builder": "@angular/build:karma",
+          "options": {
+            "tsConfig": "tsconfig.spec.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ],
+            "inlineStyleLanguage": "scss",
+            "styles": [
+              "src/styles.scss"
+            ],
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "public"
+              }
+            ],
+            "browsers": "ChromeHeadless",
+            "watch": false,
+            "codeCoverage": true
+          }
         }
       }
     }
