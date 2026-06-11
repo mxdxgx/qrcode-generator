@@ -291,4 +291,4 @@ Avant d'ouvrir une pull request vers `master`:
 3. Executer `npm run build`.
 4. Verifier manuellement le flux principal: URL, logo, style, langue, telechargement.
 
-Les pull requests vers `master` sont automatiquement verifiees par GitHub Actions. Apres merge sur `master`, le workflow de deploiement publie automatiquement l'application sur GitHub Pages. Le meme deploiement peut aussi etre lance manuellement depuis GitHub Actions.
+Les pull requests vers `master` sont automatiquement verifiees par GitHub Actions. Apres merge sur `master`, le workflow de deploiement publie automatiquement l'application sur GitHub Pages. Le meme deploiement peut aussi etre lance manuellement depuis GitHub Actions. Les reglages GitHub recommandes pour le depot sont documentes dans `docs/github-repository-settings.md` et peuvent etre appliques avec `scripts/configure-github-repo.js`.
